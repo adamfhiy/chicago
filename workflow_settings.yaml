@@ -1,0 +1,5 @@
+defaultProject: chicago-taxi-cab
+defaultDataset: dataform
+defaultAssertionDataset: dataform_assertions
+defaultLocation: US
+dataformCoreVersion: 3.0.52

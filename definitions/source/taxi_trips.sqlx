@@ -1,0 +1,8 @@
+config {
+    type: "declaration",
+    database: "bigquery-public-data",
+    schema: "chicago_taxi_trips",
+    name: "taxi_trips"
+
+
+}

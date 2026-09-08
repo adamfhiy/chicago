@@ -1,0 +1,33 @@
+config {
+    type: "table",
+    assertions: { 
+        uniqueKey: ["trip_key"]
+    },
+    bigquery:{
+        partitionBy: "date_trunc(trip_date,month)",
+        clusterBy: ["trip_date","taxi_id"]
+    }
+
+}
+
+
+with src as (
+
+SELECT
+unique_key as trip_key
+,taxi_id
+,datetime(trip_start_timestamp) as trip_start_dt
+,date(datetime(trip_start_timestamp)) as trip_date
+
+
+from ${ref("taxi_trips")}
+
+), dedupe as(
+
+select
+*
+,row_number() over (partition by trip_key order by trip_start_dt) as row_number
+from src)
+
+
+select * except (rn) from dedupe where rn = 1
