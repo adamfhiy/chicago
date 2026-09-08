@@ -1,5 +1,6 @@
 config {
-    type: "table",
+    type: "incremental",
+    uniqueKey: ["trip_key"],
     assertions: { 
         uniqueKey: ["trip_key"]
     },
@@ -7,6 +8,16 @@ config {
         partitionBy: "date_trunc(trip_date,month)",
         clusterBy: ["trip_date","taxi_id"]
     }
+
+}
+
+pre_operations {
+    declare checkpoint default (
+        ${when(incremental(),
+        `select timestamp_sub(timestamp(max(trip_start_dt)), interval 7 day) from ${self()}`,
+        `select timestamp("2013-01-01")`)
+        }
+    )
 
 }
 
@@ -29,11 +40,8 @@ datetime(timestamp_add(trip_start_timestamp, interval coalesce(trip_seconds,0) s
 ,coalesce(tips,0) as tips
 ,coalesce(trip_total,0) as trip_total
 
-
-
-
-
 from ${ref("taxi_trips")}
+where trip_start_timestamp >= checkpoint
 
 ), dedupe as(
 
