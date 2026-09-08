@@ -19,6 +19,19 @@ unique_key as trip_key
 ,datetime(trip_start_timestamp) as trip_start_dt
 ,date(datetime(trip_start_timestamp)) as trip_date
 
+,coalesce(datetime(trip_end_timestamp),
+datetime(timestamp_add(trip_start_timestamp, interval coalesce(trip_seconds,0) second))) as trip_end_dt
+,coalesce(trip_seconds,0) as trip_seconds
+
+,round(coalesce(trip_seconds,0)/60,2) as trip_minutes
+,payment_type
+,coalesce(fare,0) as fare
+,coalesce(tips,0) as tips
+,coalesce(trip_total,0) as trip_total
+
+
+
+
 
 from ${ref("taxi_trips")}
 
@@ -26,7 +39,7 @@ from ${ref("taxi_trips")}
 
 select
 *
-,row_number() over (partition by trip_key order by trip_start_dt) as row_number
+,row_number() over (partition by trip_key order by trip_start_dt) as rn
 from src)
 
 
