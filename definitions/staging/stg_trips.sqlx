@@ -1,6 +1,5 @@
 config {
     type: "table",
-    schema: "taxi_staging",
     assertions: { 
         uniqueKey: ["trip_key"]
     },

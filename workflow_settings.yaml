@@ -1,5 +1,5 @@
 defaultProject: chicago-taxi-cab
-defaultDataset: taxi_marts
-defaultAssertionDataset: taxi_assertions
+defaultDataset: dbo
+defaultAssertionDataset: dbo
 defaultLocation: US
 dataformCoreVersion: 3.0.52
