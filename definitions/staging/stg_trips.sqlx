@@ -1,54 +1,54 @@
 config {
     type: "incremental",
     uniqueKey: ["trip_key"],
-    assertions: { 
+    assertions: {
         uniqueKey: ["trip_key"]
     },
-    bigquery:{
+    bigquery: {
         partitionBy: "date_trunc(trip_date,month)",
-        clusterBy: ["trip_date","taxi_id"]
+        clusterBy: ["trip_date", "taxi_id"]
     }
 
 }
 
-pre_operations {
-    declare checkpoint default (
-        ${when(incremental(),
-        `select timestamp_sub(timestamp(max(trip_start_dt)), interval 7 day) from ${self()}`,
-        `select timestamp("2013-01-01")`)
-        }
-    )
-
-}
-
-
-with src as (
-
+WITH
+  src AS (
+  SELECT
+    unique_key AS trip_key,
+    taxi_id,
+    DATETIME(trip_start_timestamp) AS trip_start_dt,
+    DATE(DATETIME(trip_start_timestamp)) AS trip_date,
+    COALESCE(DATETIME(trip_end_timestamp), DATETIME(TIMESTAMP_ADD(trip_start_timestamp, INTERVAL COALESCE(trip_seconds,0) second))) AS trip_end_dt,
+    COALESCE(trip_seconds,0) AS trip_seconds,
+    ROUND(COALESCE(trip_seconds,0)/60,2) AS trip_minutes,
+    payment_type,
+    COALESCE(fare,0) AS fare,
+    COALESCE(tips,0) AS tips,
+    COALESCE(trip_total,0) AS trip_total
+  FROM
+    ${ref("taxi_trips")}
+  WHERE
+    trip_start_timestamp >= checkpoint ),
+  dedupe AS(
+  SELECT
+    *,
+    ROW_NUMBER() OVER (PARTITION BY trip_key ORDER BY trip_start_dt) AS rn
+  FROM
+    src)
 SELECT
-unique_key as trip_key
-,taxi_id
-,datetime(trip_start_timestamp) as trip_start_dt
-,date(datetime(trip_start_timestamp)) as trip_date
+  * EXCEPT (rn)
+FROM
+  dedupe
+WHERE
+  rn = 1
 
-,coalesce(datetime(trip_end_timestamp),
-datetime(timestamp_add(trip_start_timestamp, interval coalesce(trip_seconds,0) second))) as trip_end_dt
-,coalesce(trip_seconds,0) as trip_seconds
-
-,round(coalesce(trip_seconds,0)/60,2) as trip_minutes
-,payment_type
-,coalesce(fare,0) as fare
-,coalesce(tips,0) as tips
-,coalesce(trip_total,0) as trip_total
-
-from ${ref("taxi_trips")}
-where trip_start_timestamp >= checkpoint
-
-), dedupe as(
-
-select
-*
-,row_number() over (partition by trip_key order by trip_start_dt) as rn
-from src)
-
-
-select * except (rn) from dedupe where rn = 1
+pre_operations {
+  DECLARE
+    checkpoint DEFAULT (
+    ${
+        when(incremental(),
+            `select timestamp_sub(timestamp(max(trip_start_dt)), interval 7 day) from ${self()}`,
+            `select timestamp("2013-01-01")`)
+    }
+    )
+}
