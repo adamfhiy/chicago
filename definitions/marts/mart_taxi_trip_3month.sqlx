@@ -9,7 +9,7 @@ select
 from ${ref("stg_trips")}
 where
 trip_date >= date_sub((select max(trip_date) from ${ref("stg_trips")}), interval 3 month)
-and 
-payment_type in ('Credit Card', 'Mobile', 'Prcard', 'Pcard', 'Way2ride')
+--and 
+--payment_type in ('Credit Card', 'Mobile', 'Prcard', 'Pcard', 'Way2ride')
 and
 taxi_id in (select distinct taxi_id from ${ref("mart_top_100_tip_taxi")})
