@@ -11,11 +11,11 @@ select date_day
 from  unnest (
 generate_date_array(
     (select min(trip_date) from ${ref("stg_trips")}),
-    (select max(trip_date) from ${ref("stf_trips")}), 
-    interval 1 day
-) as date_day)
+    (select max(trip_date) from ${ref("stg_trips")}), 
+    interval 1 day))
+as date_day)
 
-)
+
 
 select
 
@@ -24,7 +24,7 @@ a.date_day
 ,extract(month from a.date_day) as month
 ,format_date('%Y-%m', a.date_day) as year_month
 ,format_date('%A', a.date_day) as day_of_week
-,formate_date('%B',a.date_day) as month_name
+,format_date('%B',a.date_day) as month_name
 
 
 

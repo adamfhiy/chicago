@@ -7,7 +7,7 @@ config {
 
 
 select
-holiday_date
+date(holiday_date) as holiday_date
 ,holiday_name
 ,holiday_type
 ,is_shift --TRUE means the day off moved because the holiday fell on a weekend
