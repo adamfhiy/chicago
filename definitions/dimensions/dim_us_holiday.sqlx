@@ -5,7 +5,7 @@ config {
     }
 }
 
-
+with holiday as (
 select
 date(holiday_date) as holiday_date
 ,holiday_name
@@ -196,4 +196,8 @@ array< struct< holiday_date string, holiday_name string, holiday_type string,  i
   ('2023-12-25', 'Christmas Day', 'federal', FALSE),
   ('2023-12-31', 'New Years Eve', 'cultural', FALSE)
 ]
-)
+))
+select 
+cast(format_date('%Y%m%d', holiday_date) as int64) as date_key, * from holiday
+
+

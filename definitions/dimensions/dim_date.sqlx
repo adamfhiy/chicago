@@ -18,16 +18,20 @@ as date_day)
 
 
 select
-
-a.date_day
+cast(format_date('%Y%m%d', a.date_day) as int64) as date_key
+,a.date_day
 ,extract(year from a.date_day) as year
 ,extract(month from a.date_day) as month
 ,format_date('%Y-%m', a.date_day) as year_month
 ,format_date('%A', a.date_day) as day_of_week
 ,format_date('%B',a.date_day) as month_name
-
-
-
+,extract(day from a.date_day) as day_of_Month
+,extract(dayofweek from a.date_day) as day_of_week_number
+,extract(dayofweek from a.date_day) in (1,7) as is_weekend
+,b.holiday_name
+,b.holiday_type
+,b.holiday_date is not null as is_holiday
+,b.is_shift
 
 from calendar a
 left join ${ref("dim_us_holiday")} b on a.date_day = b.holiday_date

@@ -14,6 +14,7 @@ config {
 WITH
   src AS (
   SELECT
+
     unique_key AS trip_key,
     taxi_id,
     DATETIME(trip_start_timestamp) AS trip_start_dt,
@@ -36,6 +37,9 @@ WITH
   FROM
     src)
 SELECT
+  
+  cast(format_date('%Y%m%d', trip_date) as int64) as date_key,
+  
   * EXCEPT (rn)
 FROM
   dedupe
