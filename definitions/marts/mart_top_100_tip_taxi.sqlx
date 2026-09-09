@@ -1,7 +1,7 @@
 config {
     type: "table"
 }
-
+with calculate as(
 select
 
 taxi_id
@@ -18,6 +18,9 @@ payment_type in ('Credit Card', 'Mobile', 'Prcard', 'Pcard', 'Way2ride')
 
 group by taxi_id
 order by total_tips desc
+)
+
+select * from calculate
 limit 100
 
 
