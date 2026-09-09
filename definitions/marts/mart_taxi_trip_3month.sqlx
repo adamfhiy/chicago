@@ -1,0 +1,13 @@
+config {
+    type: "table"
+}
+
+select
+
+*
+
+from ${ref("stg_trips")}
+where
+trip_date >= date_sub((select max(trip_date) from ${ref("stg_trips")}), interval 3 month)
+and 
+payment_type in ('Credit Card', 'Mobile', 'Prcard', 'Pcard', 'Way2ride')
