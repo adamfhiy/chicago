@@ -42,7 +42,7 @@ a.holiday_date
 ,a.trip_count
 ,round(b.baseline_trips,1) as baseline_trips
 ,b.baseline_days
-, round(safe_divide((a.trip_count - b.baseline_trips), (b.baseline_trips))*100,2) as pct_vs_dateline
+, round(safe_divide((a.trip_count - b.baseline_trips), (b.baseline_trips))*100,2) as pct_vs_baseline
 
 from holidays a 
 join baseline b on a.holiday_date = b.holiday_date

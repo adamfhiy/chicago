@@ -4,10 +4,11 @@ select
   holiday_name
   ,any_value(holiday_type)           as holiday_type
   ,count(*)                          as years_observed
-  ,round(avg(pct_vs_dateline), 2)    as avg_pct
-  ,round(stddev(pct_vs_dateline), 2) as pct_stddev
-  ,round(min(pct_vs_dateline), 2)    as worst_year
-  ,round(max(pct_vs_dateline), 2)    as best_year
+  ,round(avg(pct_vs_baseline), 2)    as avg_pct
+  ,round(stddev(pct_vs_baseline), 2) as pct_stddev
+  ,round(min(pct_vs_baseline), 2)    as worst_year
+  ,round(max(pct_vs_baseline), 2)    as best_year
 from ${ref("mart_q3_holiday_comparison")}
 group by holiday_name
 order by avg_pct
+
