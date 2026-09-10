@@ -1,28 +1,38 @@
-config { 
+config {
     type: "table"
 }
 
+with buckets as (
+  select
+    case
+      when shift_hours is null then 'unknown'
+      when shift_hours < 2  then '00-02h'
+      when shift_hours < 4  then '02-04h'
+      when shift_hours < 6  then '04-06h'
+      when shift_hours < 8  then '06-08h'
+      when shift_hours < 10 then '08-10h'
+      when shift_hours < 12 then '10-12h'
+      when shift_hours < 14 then '12-14h'
+      when shift_hours < 16 then '14-16h'
+      when shift_hours < 18 then '16-18h'
+      when shift_hours < 20 then '18-20h'
+      when shift_hours < 22 then '20-22h'
+      when shift_hours < 24 then '22-24h'
+      else '24h+'
+    end                                    as shift_length_bucket
+    ,count(*)                              as shifts
+    ,count(distinct taxi_id)               as vehicles
+    ,round(avg(trips), 1)                  as avg_trips_per_shift
+    ,round(safe_divide(sum(trips), sum(shift_hours)), 2) as trips_per_hour
+  from ${ref("int_taxi_shift_model_2")}
+  group by shift_length_bucket
+)
+
 select
-  case
-    when shift_hours is null then 'unknown'
-    when shift_hours < 2  then '00-02h'
-    when shift_hours < 4  then '02-04h'
-    when shift_hours < 6  then '04-06h'
-    when shift_hours < 8  then '06-08h'
-    when shift_hours < 10 then '08-10h'
-    when shift_hours < 12 then '10-12h'
-    when shift_hours < 14 then '12-14h'
-    when shift_hours < 16 then '14-16h'
-    when shift_hours < 18 then '16-18h'
-    when shift_hours < 20 then '18-20h'
-    when shift_hours < 22 then '20-22h'
-    when shift_hours < 24 then '22-24h'
-    else '24h+'
-  end                                    as shift_length_bucket
-  ,count(*)                              as shifts
-  ,count(distinct taxi_id)               as vehicles
-  ,round(avg(trips), 1)                  as avg_trips_per_shift
-  ,round(safe_divide(sum(trips), sum(shift_hours)), 2) as trips_per_hour
-from ${ref("int_taxi_shift_model_2")}
-group by shift_length_bucket
+  *
+  ,round(
+     avg_trips_per_shift
+     - lag(avg_trips_per_shift) over (order by shift_length_bucket)
+   , 1)                                    as marginal_trips_gained
+from buckets
 order by shift_length_bucket
