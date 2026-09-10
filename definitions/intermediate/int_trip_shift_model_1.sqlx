@@ -1,0 +1,18 @@
+config {
+    type: "table"
+}
+
+select 
+    trip_key
+    ,taxi_id
+    ,trip_start_dt
+    ,trip_end_dt
+    ,lag(trip_end_dt) over (partition by taxi_id order by trip_start_dt, trip_key) as prev_trip_end_dt
+
+from ${ref("stg_trips")}
+
+where extract(year from trip_date) = (
+
+    select extract(year from max(trip_date)) from ${ref("stg_trips")}
+)
+
