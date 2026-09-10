@@ -1,0 +1,29 @@
+config {
+    type: "table"
+}
+
+
+select
+
+a.trip_date
+,count(*) as trips
+,b.day_of_week
+,b.day_of_week_number
+,b.holiday_name
+,b.holiday_type
+,b.is_holiday
+,b.is_shift
+
+
+from ${ref("stg_trips")} a 
+left join ${ref("dim_date")} b on a.date_key = b.date_key
+
+group by 
+a.trip_date
+,b.day_of_week
+,b.day_of_week_number
+,b.holiday_name
+,b.holiday_type
+,b.is_holiday
+,b.is_shift
+
