@@ -1,4 +1,4 @@
-config {
+config { 
     type: "table"
 }
 
@@ -22,6 +22,7 @@ select
   ,count(*)                              as shifts
   ,count(distinct taxi_id)               as vehicles
   ,round(avg(trips), 1)                  as avg_trips_per_shift
+  ,round(safe_divide(sum(trips), sum(shift_hours)), 2) as trips_per_hour
 from ${ref("int_taxi_shift_model_2")}
 group by shift_length_bucket
 order by shift_length_bucket
