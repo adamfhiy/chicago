@@ -5,12 +5,11 @@ config {
 select
   extract(hour from trip_start_dt) as hour_of_day
   ,count(*)                        as trips
-  ,round(avg(gap_minutes), 1)      as avg_wait_minutes
-  ,round(approx_quantiles(gap_minutes, 100)[offset(50)], 1) as median_wait_minutes
-  ,round(approx_quantiles(gap_minutes, 100)[offset(90)], 1) as p90_wait_minutes
-  ,round(sum(gap_minutes) / 60.0, 1) as total_idle_hours
+  ,round(avg(case when gap_minutes between 0 and 480 then gap_minutes end), 1) as avg_wait_minutes
+  ,round(approx_quantiles(case when gap_minutes between 0 and 480 then gap_minutes end, 100)[offset(50)], 1) as median_wait_minutes
+  ,round(approx_quantiles(case when gap_minutes between 0 and 480 then gap_minutes end, 100)[offset(90)], 1) as p90_wait_minutes
+  ,round(sum(case when gap_minutes between 0 and 480 then gap_minutes end) / 60.0, 1) as total_idle_hours
+  ,round(count(*) / sum(count(*)) over () * 100, 2) as pct_of_daily_trips
 from ${ref("int_trip_shift_model_1")}
-where gap_minutes is not null
-  and gap_minutes between 0 and 480
 group by hour_of_day
 order by hour_of_day
