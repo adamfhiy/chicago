@@ -1,0 +1,16 @@
+config {
+    type: "table"
+}
+
+
+select
+  taxi_id
+  ,shift_number
+  ,min(trip_start_dt)  as shift_start
+  ,max(trip_end_dt)  as shift_end
+  ,safe_divide(datetime_diff(max(trip_end_dt), min(trip_start_dt), minute), 60) as shift_hours
+  ,count(*)  as trips
+from ${ref("int_trip_shift_model_1")}
+group by taxi_id, shift_number
+
+

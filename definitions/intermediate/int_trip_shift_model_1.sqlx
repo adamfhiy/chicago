@@ -2,6 +2,7 @@ config {
     type: "table"
 }
 
+with lagged as (
 select 
     trip_key
     ,taxi_id
@@ -15,4 +16,22 @@ where extract(year from trip_date) = (
 
     select extract(year from max(trip_date)) from ${ref("stg_trips")}
 )
+
+), shiftadded as (
+
+select 
+*
+, datetime_diff(trip_start_dt, prev_trip_end_dt, minute) as gap_minutes
+, case when datetime_diff(trip_start_dt, prev_trip_end_dt, minute) >= 480 or prev_trip_end_dt is null then 1 else 0 end as is_shift_start
+from lagged
+
+)
+
+select *,
+  sum(is_shift_start) over (partition by taxi_id order by trip_start_dt, trip_key) as shift_number
+from shiftadded
+
+
+
+
 
