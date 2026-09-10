@@ -13,8 +13,8 @@ taxi_id
 from ${ref("stg_trips")}
 where
 trip_date >= date_sub((select max(trip_date) from ${ref("stg_trips")}), interval 3 month)
---and 
---payment_type in ('Credit Card', 'Mobile') -- other payment method ignored due to data collection gap
+and 
+payment_type in ('Credit Card', 'Mobile') -- other payment method ignored due to data collection gap
 
 group by taxi_id
 order by total_tips desc
