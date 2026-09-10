@@ -23,7 +23,7 @@ a.holiday_date
 ,avg(b.trips) as baseline_trips
 ,count(*) as baseline_days
 
-from holiday a
+from holidays a
 join ${ref("mart_q3_daily_trips")} b on
 
 a.day_of_week_number = b.day_of_week_number
