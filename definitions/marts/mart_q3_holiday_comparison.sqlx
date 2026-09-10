@@ -1,0 +1,50 @@
+config { 
+    type: "table"
+}
+
+
+
+with holidays as(
+select
+trip_date as holiday_date
+,day_of_week_number
+,holiday_name
+,holiday_type
+,trips as trip_count
+
+from ${ref("mart_q3_daily_trips")}
+where is_holiday = true
+and is_shift = false
+
+), baseline as (
+
+select
+a.holiday_date
+,avg(b.trips) as baseline_trips
+,count(*) as baseline_days
+
+from holiday a
+join ${ref("mart_q3_daily_trips")} b on
+
+a.day_of_week_number = b.day_of_week_number
+and b.trip_date between date_sub(a.holiday_date, interval 28 day) and date_add(a.holiday_date, interval 28 day)
+and b.trip_date <> a.holiday_date
+and b.is_holiday = false
+
+group by a.holiday_date
+)
+
+
+select
+a.holiday_date
+,a.holiday_name
+,a.holiday_type
+,a.trip_count
+,round(b,baseline_trip,1) as baseline_trips
+,b.baseline_days
+, round(safe_divide((a.trip_count - b.baseline_trips), (b.baseline_trips)*100),2) as pct_vs_dateline
+
+from holidays a 
+join baseline b on a.holiday_date = b.holiday_date
+order by a.holiday_date
+
