@@ -1,0 +1,11 @@
+config { type: "table" }
+
+select
+  payment_type
+  ,count(*)                                              as trips
+  ,round(safe_divide(countif(tips > 0), count(*)) * 100, 2) as pct_trips_tipped
+  ,round(safe_divide(sum(tips), sum(fare)) * 100, 2)     as tip_rate_pct
+  ,round(sum(tips), 2)                                   as total_tips
+from ${ref("stg_trips")}
+group by payment_type
+order by trips desc
