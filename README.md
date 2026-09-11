@@ -1,7 +1,8 @@
 # Chicago Taxi Trips
 
 A Dataform pipeline over `bigquery-public-data.chicago_taxi_trips.taxi_trips`,
-answering three questions about tipping, driver hours and public holidays.
+answering three questions about tipping, driver hours and public holidays, plus
+two further insights.
 
 **Dashboard:** [FILL]
 **BigQuery project:** `chicago-taxi-cab`, dataset `dbo`
@@ -29,12 +30,11 @@ anchored to `MAX(trip_date)` rather than `CURRENT_DATE()`.
 | `int_trip_shift_model_1` | Trip level. `LAG` to get the gap to the previous trip, flags shift starts |
 | `int_taxi_shift_model_2` | One row per shift |
 | `mart_overworked_taxis` | Q2 answer |
-| `mart_shift_length_distribution` | Shift length buckets, supports the 12 hour threshold |
+| `mart_shift_length_distribution` | Shift length buckets, supports Q2's threshold and Q4b |
 | `mart_q3_daily_trips` | Daily trip counts joined to `dim_date` |
 | `mart_q3_holiday_comparison` | One row per holiday per year against a matched baseline |
 | `mart_q3_holiday_summary` | Averaged across years, with spread |
-| `mart_insight_payment_tipping` | Insight 1 |
-| `mart_insight_idle_time` | Insight 2 |
+| `mart_q4_insights_idle_time` | Q4a |
 
 Assertions run on `stg_trips` for uniqueness on `trip_key`.
 
@@ -59,23 +59,23 @@ table was republished between builds and duplicates jumped from 1.5 million to
 85 million.
 
 The pipeline absorbed it without a code change. The dedupe removed the new
-duplicates, the assertion still passed, and Q2 and Q3 results reproduced. All
-figures in this README are from after the republish.
+duplicates, the assertion still passed, and Q2 and Q3 reproduced. All figures in
+this README are from after the republish.
 
 ### Cash tips are not recorded
 
-Measured on deduplicated staging:
+| Payment type | % of all trips | % of trips tipped |
+| --- | --- | --- |
+| Credit Card | 39.93% | 94% |
+| Mobile | 1.83% | 93% |
+| Cash | 54.77% | 0% |
+| Prcard | 1.57% | 6% |
+| No Charge | 0.63% | 18% |
+| Pcard | 0.01% | 7% |
+| Way2ride | 0.00% | 100% |
 
-| Payment type | Trips | % of trips tipped | Tip rate |
-| --- | --- | --- | --- |
-| Credit Card | 50,666,718 | 94.09% | 21.67% |
-| Mobile | 2,328,046 | 93.14% | 19.84% |
-| Cash | 69,488,171 | 0.10% | 0.04% |
-| Prcard | 1,997,052 | 6.08% | 0.80% |
-| Pcard | 12,337 | 6.70% | 2.72% |
-
-Nine in ten card passengers tip. One in a thousand cash passengers does. Same
-city, same cabs. That is a recording gap, not a behavioural one.
+Nine in ten card passengers tip. Effectively no cash passenger does. Same city,
+same cabs. That is a recording gap, not a behavioural one.
 
 Prepaid cards behave like cash, so only Credit Card and Mobile are treated as
 reliable.
@@ -87,18 +87,19 @@ reliable.
 Vehicles ranked by total tips over the last three months in the data, restricted
 to Credit Card and Mobile payments.
 
+The top 100 took $406,165 in tips across 59,234 trips, at a 21.53% tip rate.
+
 **Assumption on wording.** The question says "tip earners" but clarifies "earn
 more money than others". Tips are taken as the money in question, so the ranking
-is on total tips. Total fare revenue is reported alongside so the list can be
-re-ranked on gross earnings if the other reading was intended.
+is on total tips.
 
-**Cash is excluded** because 69.5 million cash trips would enter the ranking
-contributing nothing, turning the leaderboard into a measure of payment mix.
+**Cash is excluded** because it is 54.77% of trips and records no tips at all.
+Including it would rank vehicles on payment mix rather than on tipping.
 
-**Tip rate and tips per trip are reported alongside** the total. Total tips
-tracks trip count closely, so the raw leaderboard is closer to "busiest
-vehicles" than "best tipped". The rate columns make a quieter but better tipped
-vehicle visible.
+**Tip rate and trips are reported alongside** the total, because total tips
+tracks trip count closely. The raw leaderboard is therefore closer to "busiest
+vehicles" than "best tipped", and the rate column makes a quieter but better
+tipped vehicle visible.
 
 ---
 
@@ -132,7 +133,21 @@ therefore contains no 8 hour break by construction.
 | Share that must be long | 50% | Reading of "regularly" |
 | Rank within qualifiers | Total hours | "work more hours than others" |
 
-152 vehicles of 3,405 passed all rules, 4.5%. The top 100 by hours are reported.
+152 vehicles of 3,405 passed all rules, 4.5%. The top 100 by total hours are
+reported.
+
+### The answer
+
+The top three vehicles:
+
+| Taxi ID | Hours | Shifts | Long shifts | Over 24 h | Avg shift |
+| --- | --- | --- | --- | --- | --- |
+| `6aefbdce` | 5,489.5 | 265 | 79.25% | 60 | 20.72 h |
+| `d40dae7e` | 5,398.5 | 304 | 85.20% | 40 | 17.76 h |
+| `6436b1ea` | 5,374.75 | 295 | 64.07% | 54 | 18.22 h |
+
+Across the whole top 100: 31,230 shifts, averaging 13.65 hours each, of which
+2,016 ran past 24 hours.
 
 ### Why the long shift threshold is 12 hours
 
@@ -163,19 +178,6 @@ Buckets are 2 hours wide so bar height reads as density. The final bucket is
 open-ended, covering 24 to 113 hours, and is not comparable in width to the
 others. No shift had a null length.
 
-### Long hours are not the same as hard work
-
-Trips per shift stops rising at about 14 hours. A 22 hour shift takes 13.5
-fares, the same as a 15 hour one. Those extra hours produce nothing.
-
-This is the 8 hour rule showing through. A vehicle that works a normal day,
-parks for 6 hours, then takes one late fare is recorded as a single long shift
-because the gap never reached 8 hours. Those vehicles were switched on, not
-busy.
-
-Ranking on hours therefore rewards idle time. Trips are reported alongside hours
-in the output so the two can be separated.
-
 ### Caveat: this measures vehicles, not drivers
 
 `taxi_id` is a medallion, not a driver.
@@ -193,7 +195,7 @@ and no gap over four hours.
 
 These are shared vehicles handed between drivers without an 8 hour gap. The
 answer measures vehicle utilisation. It remains the right starting point for a
-fatigue audit, because a medallion running 4,182 hours has drivers behind it
+fatigue audit, because a medallion running 5,489 hours has drivers behind it
 whose individual hours nobody is tracking.
 
 ---
@@ -271,35 +273,79 @@ out, holidays would be busy. They are empty instead.
 everything. St Patrick's Day on a Saturday is a boom, on a Tuesday it is a
 normal working day.
 
-**Business value.** Federal holidays with tight variance can be planned on the
-average, so supply can be cut confidently. New Year's Eve and St Patrick's Day
-must be planned by weekday instead, because the holiday itself predicts nothing.
+**Business value.** Holidays with tight variance can be planned on the average,
+so supply can be cut confidently. New Year's Eve and St Patrick's Day must be
+planned by weekday instead, because the holiday itself predicts nothing.
 
 ---
 
-## Bonus: two further insights
+## Q4a: cabs wait longest when there is no one to pick up
 
-### Insight 1: cash tips are absent from the record
+Idle time is the gap between one trip ending and the next beginning, capped at
+the 8 hour shift break since anything longer is a new shift rather than waiting.
 
-The payment table above is the evidence. Nine in ten card passengers tip, one in
-a thousand cash passengers does, in the same city and the same cabs.
+| Hour | p90 wait | Median wait | Share of trips |
+| --- | --- | --- | --- |
+| 12AM | 165 min | 30 min | 1.79% |
+| 1AM | 150 min | 30 min | 1.13% |
+| 2AM | 135 min | 30 min | 0.68% |
+| 3AM | 150 min | 30 min | 0.50% |
+| 4AM | 255 min | 30 min | 0.59% |
+| 5AM | 300 min | 30 min | 0.98% |
+| 6AM | 195 min | 30 min | 1.82% |
+| 7AM | 90 min | 15 min | 3.29% |
+| 8AM | 75 min | 15 min | 4.87% |
 
-**Business value.** Cash is 55% of trip volume. Any driver earnings, tipping or
-service quality metric built on this table is measuring card trips only, so a
-fleet ranking drivers on recorded tips is ranking them on payment mix. Either
-restrict those metrics to card trips or model cash tips separately before using
-them in driver incentives.
+Worst-case wait peaks at 300 minutes at 5AM and bottoms at 75 minutes at 8AM.
+The 3AM to 5AM block carries 2.07% of all trips.
 
-### Insight 2: idle time peaks when volume is lowest
+The morning block from 7AM to 10AM is the only window where median wait halves
+to 15 minutes. The evening peak is busier but slower: 5PM carries the most trips
+of any hour at 7.15%, yet its p90 wait is 135 minutes.
 
-The 90th percentile wait for the next fare peaks at 300 minutes at 5am against
-75 minutes at 8am, on roughly a fifteenth of the trip volume.
+**Business value.** A cab working 3AM to 6AM chases roughly 2% of the day's
+fares and can wait up to five hours between them. The same car in the 7AM to
+10AM window waits 75 minutes and picks up five times the volume. Shifting
+overnight shift starts two hours later raises revenue per vehicle hour without
+adding a single car. It also cuts fatigue risk, since the longest shifts in Q2
+run straight through these dead hours.
 
-**Business value.** A vehicle on the road at 5am faces a worst case five hour
-wait against roughly one hour at 8am. Moving overnight capacity toward the 7am
-to 9am ramp raises revenue per vehicle hour without adding a single car. It also
-overlaps with the fatigue exposure in Q2, since the longest shifts are the ones
-running through these dead hours.
+---
+
+## Q4b: a shift stops earning after 14 hours
+
+Trips per shift climb steadily with shift length, then stop. From the 14 to 16
+hour band onward the figure sits at 13.5 to 13.9 and goes no higher.
+
+| Shift band | Trips per shift | Gain over previous band |
+| --- | --- | --- |
+| 08-10h | 8.9 | +1.8 |
+| 10-12h | 10.9 | +2.0 |
+| 12-14h | 12.6 | +1.7 |
+| 14-16h | 13.7 | +1.1 |
+| 16-18h | 13.7 | 0.0 |
+| 18-20h | 13.6 | -0.1 |
+| 20-22h | 13.5 | -0.1 |
+| 22-24h | 13.9 | +0.4 |
+
+Up to 14 hours, two more hours on the road buys roughly two more fares. After
+that the return is zero, and between 18 and 22 hours it is slightly negative.
+
+Trips per hour tells the same story from the other side. It holds near 1.0
+through 12 hours, then falls to 0.60 by hour 23.
+
+This is an average rather than a hard cap. Individual shifts go above and below
+it. The precise claim is that the average stops rising after 14 hours.
+
+**Shifts over 24 hours are excluded** from this analysis. That bucket averages
+28.4 trips, roughly double the ceiling, because those are shared medallions
+rather than one person working through. Including them would hide the pattern.
+
+**Business value.** There is a practical revenue cap per vehicle per shift and it
+is reached at 14 hours. Every hour past that carries fuel, wear and fatigue risk
+with no fare to offset it. Capping shifts at 14 to 16 hours would remove the
+fatigue exposure at almost no revenue cost. Growth has to come from more
+vehicles or better positioning, not longer shifts.
 
 ---
 
@@ -307,15 +353,17 @@ running through these dead hours.
 
 - `taxi_id` is a medallion, not a driver
 - Cash tips are unrecorded, so Q1 measures card tips only
-- Q2 covers 2023 only and is not comparable across years
+- Q2 and Q4b cover 2023 only and are not comparable across years
 - 26,927 rows (0.01%) have no `trip_end_timestamp`. These are imputed as
   `trip_start + trip_seconds` rather than dropped, because a null end time
   returns a null gap in the shift logic, which reads as a new shift and would
   split one shift into several
 - Timestamps are rounded to 15 minutes, producing small apparent overlaps
-  between consecutive trips
+  between consecutive trips. This also explains why median idle time sits at
+  exactly 15 or 30 minutes
 - Shift length runs from first pickup to last dropoff, so it is a floor on hours
   worked, not a ceiling
+- Idle time is capped at 8 hours by definition, since a longer gap ends the shift
 - The stddev 15 cutoff separating reliable from volatile holidays is a judgement
   call, chosen because it sits in a natural gap in the data
 - Not all trips are reported to the City, so the source is close to but not a
