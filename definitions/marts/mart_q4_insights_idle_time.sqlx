@@ -13,3 +13,8 @@ select
 from ${ref("int_trip_shift_model_1")}
 group by hour_of_day
 order by hour_of_day
+
+
+
+-- shift to 3 hours check for overwork
+-- 

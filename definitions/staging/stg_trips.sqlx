@@ -22,6 +22,10 @@ WITH
     COALESCE(DATETIME(trip_end_timestamp), DATETIME(TIMESTAMP_ADD(trip_start_timestamp, INTERVAL COALESCE(trip_seconds,0) second))) AS trip_end_dt,
     COALESCE(trip_seconds,0) AS trip_seconds,
     ROUND(COALESCE(trip_seconds,0)/60,2) AS trip_minutes,
+    pickup_latitude,
+    pickup_longitude,
+    dropoff_latitude,
+    dropoff_longitude,
     payment_type,
     COALESCE(fare,0) AS fare,
     COALESCE(tips,0) AS tips,
@@ -56,3 +60,4 @@ pre_operations {
     }
     )
 }
+

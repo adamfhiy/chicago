@@ -22,7 +22,7 @@ where extract(year from trip_date) = (
 select 
 *
 , datetime_diff(trip_start_dt, prev_trip_end_dt, minute) as gap_minutes
-, case when datetime_diff(trip_start_dt, prev_trip_end_dt, minute) >= 480 or prev_trip_end_dt is null then 1 else 0 end as is_shift_start
+, case when datetime_diff(trip_start_dt, prev_trip_end_dt, minute) >= 180 or prev_trip_end_dt is null then 1 else 0 end as is_shift_start
 from lagged
 
 )
@@ -31,7 +31,7 @@ select *,
   sum(is_shift_start) over (partition by taxi_id order by trip_start_dt, trip_key) as shift_number
 from shiftadded
 
-
+order by taxi_id, shift_number
 
 
 
