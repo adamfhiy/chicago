@@ -19,7 +19,19 @@ WITH
     taxi_id,
     DATETIME(trip_start_timestamp) AS trip_start_dt,
     DATE(DATETIME(trip_start_timestamp)) AS trip_date,
-    COALESCE(DATETIME(trip_end_timestamp), DATETIME(TIMESTAMP_ADD(trip_start_timestamp, INTERVAL COALESCE(trip_seconds,0) second))) AS trip_end_dt,
+    --COALESCE(DATETIME(trip_end_timestamp), DATETIME(TIMESTAMP_ADD(trip_start_timestamp, INTERVAL COALESCE(trip_seconds,0) second))) AS trip_end_dt,
+   case
+   when datetime_diff(
+          coalesce(datetime(trip_end_timestamp),
+                   datetime_add(datetime(trip_start_timestamp),
+                                interval coalesce(trip_seconds,0) second)),
+          datetime(trip_start_timestamp), hour) > 12
+   then datetime_add(datetime(trip_start_timestamp),
+                     interval coalesce(trip_seconds,0) second)
+   else coalesce(datetime(trip_end_timestamp),
+                 datetime_add(datetime(trip_start_timestamp),
+                              interval coalesce(trip_seconds,0) second))
+ end as trip_end_dt,
     COALESCE(trip_seconds,0) AS trip_seconds,
     ROUND(COALESCE(trip_seconds,0)/60,2) AS trip_minutes,
     pickup_latitude,
@@ -33,7 +45,17 @@ WITH
   FROM
     ${ref("taxi_trips")}
   WHERE
-    trip_start_timestamp >= checkpoint ),
+    trip_start_timestamp >= checkpoint 
+    and coalesce(trip_seconds, 0) <= 43200 -- removing trips exceeding 12 hours. 29k rows affected (0.02%)
+and (
+  trip_end_timestamp is null
+  or datetime_diff(datetime(trip_end_timestamp), datetime(trip_start_timestamp), hour) <= 12
+)
+    
+    
+    
+    
+    ),
   dedupe AS(
   SELECT
     *,
