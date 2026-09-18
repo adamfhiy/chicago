@@ -46,12 +46,14 @@ WITH
     ${ref("taxi_trips")}
   WHERE
     trip_start_timestamp >= checkpoint 
-    and coalesce(trip_seconds, 0) <= 43200 -- removing trips exceeding 12 hours. 29k rows affected (0.02%)
 and (
   trip_end_timestamp is null
-  or datetime_diff(datetime(trip_end_timestamp), datetime(trip_start_timestamp), hour) <= 12
+  or (
+    trip_end_timestamp >= trip_start_timestamp
+    and timestamp_diff(trip_end_timestamp, trip_start_timestamp, hour) <= 12
+  )
 )
-    
+and coalesce(trip_seconds, 0) between 0 and 43200 -- removing trips exceeding 12 hours. 29k rows affected (0.02%)
     
     
     
