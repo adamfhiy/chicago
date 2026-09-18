@@ -1,0 +1,83 @@
+config {
+  type: "table",
+  tags: ["analysis"],
+  description: "Sensitivity test for the Q2 shift break threshold. One row per candidate break length from 3 to 12 hours, showing what the 2023 shift population would look like under that rule. Supports the choice of 8 hours.",
+  columns: {
+    break_hours: "Candidate gap length in hours that would end a shift",
+    shifts: "Number of shifts produced at this threshold",
+    avg_hours: "Mean shift length in hours",
+    median_hours: "Median shift length. Should resemble a working day",
+    p95_hours: "95th percentile shift length. Jumps once separate days start merging",
+    max_hours: "Longest shift. Driven by continuously operated vehicles and does not respond to the threshold",
+    pct_under_2h: "Share of shifts under 2 hours. High values mean real shifts are being split",
+    over_24h: "Count of shifts longer than a day",
+    pct_over_24h: "Share of shifts longer than a day",
+    trips_per_hour: "Total trips divided by total shift hours. Rises as idle time is defined away",
+    verdict: "Whether this threshold over splits, is workable, or over merges",
+    is_chosen: "True for the 8 hour threshold used in mart_overworked_taxis"
+  }
+}
+
+with thresholds as (
+  select * from unnest([3,4,5,6,7,8,9,10,11,12]) as break_hours
+),
+
+flagged as (
+  select
+    t.taxi_id
+    ,t.trip_start_dt
+    ,t.trip_end_dt
+    ,th.break_hours
+    ,case
+       when t.gap_minutes is null                 then 1
+       when t.gap_minutes < 0                     then 1
+       when t.gap_minutes >= th.break_hours * 60  then 1
+       else 0
+     end as is_start
+  from ${ref("int_trip_shift_model_1")} t
+  cross join thresholds th
+  where extract(year from t.trip_start_dt) = 2023
+),
+
+numbered as (
+  select
+    *
+    ,sum(is_start) over (
+       partition by taxi_id, break_hours
+       order by trip_start_dt
+       rows between unbounded preceding and current row
+     ) as shift_no
+  from flagged
+),
+
+shifts as (
+  select
+    break_hours
+    ,taxi_id
+    ,shift_no
+    ,datetime_diff(max(trip_end_dt), min(trip_start_dt), minute) / 60.0 as shift_hours
+    ,count(*) as trips
+  from numbered
+  group by break_hours, taxi_id, shift_no
+)
+
+select
+  break_hours
+  ,count(*)                                             as shifts
+  ,round(avg(shift_hours), 1)                           as avg_hours
+  ,approx_quantiles(shift_hours, 100)[offset(50)]       as median_hours
+  ,approx_quantiles(shift_hours, 100)[offset(95)]       as p95_hours
+  ,round(max(shift_hours), 1)                           as max_hours
+  ,round(countif(shift_hours < 2) / count(*) * 100, 2)  as pct_under_2h
+  ,countif(shift_hours > 24)                            as over_24h
+  ,round(countif(shift_hours > 24) / count(*) * 100, 2) as pct_over_24h
+  ,round(safe_divide(sum(trips), sum(shift_hours)), 2)  as trips_per_hour
+  ,case
+     when break_hours < 7   then 'Over splits'
+     when break_hours <= 9  then 'Workable'
+     else                        'Over merges'
+   end                                                  as verdict
+  ,break_hours = 8                                      as is_chosen
+from shifts
+group by break_hours
+order by break_hours

@@ -1,0 +1,36 @@
+config {
+  type: "table",
+  tags: ["analysis"],
+  description: "Distribution of gaps between consecutive trips, 2023, capped at 24 hours. Shows that gaps are bimodal: a waiting hump near zero and an overnight rest hump peaking at 14 hours, with a trough at 7. Evidence for the 8 hour shift break used in Q2.",
+  columns: {
+    gap_hours: "Gap length rounded down to the hour",
+    gaps: "Number of gaps of this length",
+    pct: "Share of all gaps under 24 hours",
+    cumulative_pct: "Running share, so the value at 7 is the proportion of gaps an 8 hour rule keeps inside a shift",
+    pct_starting_evening: "Share of these gaps that begin between 6pm and 1am. Rest gaps cluster in the evening, waiting gaps do not",
+    gap_type: "Waiting below the 7 hour trough, rest above it"
+  }
+}
+
+with g as (
+  select
+    cast(floor(gap_minutes / 60) as int64) as gap_hours
+    ,extract(hour from datetime_sub(trip_start_dt,
+       interval cast(gap_minutes as int64) minute)) as gap_starts_at
+  from ${ref("int_trip_shift_model_1")}
+  where gap_minutes between 0 and 1440
+    and extract(year from trip_start_dt) = 2023
+)
+
+select
+  gap_hours
+  ,count(*)                                          as gaps
+  ,round(count(*) / sum(count(*)) over () * 100, 2)  as pct
+  ,round(sum(count(*)) over (order by gap_hours)
+         / sum(count(*)) over () * 100, 2)           as cumulative_pct
+  ,round(countif(gap_starts_at between 18 and 23 or gap_starts_at <= 1)
+         / count(*) * 100, 1)                        as pct_starting_evening
+  ,case when gap_hours < 7 then 'Waiting' else 'Rest' end as gap_type
+from g
+group by gap_hours
+order by gap_hours
