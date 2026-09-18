@@ -1,21 +1,32 @@
 config {
-    type: "table"
+  type: "table"
 }
 
-select
-  taxi_id
-  ,count(*)                as shifts
-  ,countif(shift_hours>= 12)            as long_shifts
-  ,safe_divide(countif(shift_hours>= 12),count(*))   as long_shift_share
-  ,sum(shift_hours)        as total_hours
-  ,avg(shift_hours)        as avg_shift_hours
-  ,max(shift_hours)        as max_shift_hours
-  ,countif(shift_hours > 24) as implausible_shifts
-  ,sum(trips)              as total_trips
-from ${ref("int_taxi_shift_model_2")}
-group by taxi_id
-having count(*) >= 254
-   and countif(shift_hours >= 12) / count(*) >= 0.5
-order by total_hours desc
-limit 100
+with per_vehicle as (
+  select
+    taxi_id
+    ,count(*)                                                     as shifts
+    ,countif(shift_hours >= 12)                                   as long_shifts
+    ,round(safe_divide(countif(shift_hours >= 12), count(*)), 4)  as long_shift_share
+    ,round(sum(shift_hours), 2)                                   as total_hours
+    ,round(sum(case when shift_hours <= 24 then shift_hours end), 2) as total_hours_resolvable
+    ,round(avg(shift_hours), 2)                                   as avg_shift_hours
+    ,round(max(shift_hours), 2)                                   as max_shift_hours
+    ,countif(shift_hours > 24)                                    as implausible_shifts
+    ,sum(trips)                                                   as total_trips
+  from ${ref("int_taxi_shift_model_2")}
+  group by taxi_id
+),
 
+threshold as (
+  select approx_quantiles(shifts, 100)[offset(50)] as median_shifts
+  from per_vehicle
+)
+
+select p.*
+from per_vehicle p
+cross join threshold t
+where p.shifts >= t.median_shifts
+  and p.long_shift_share >= 0.4
+order by p.total_hours desc
+limit 100
